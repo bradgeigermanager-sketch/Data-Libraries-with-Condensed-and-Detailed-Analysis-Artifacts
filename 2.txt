@@ -1,0 +1,146 @@
+### Frame 1: The Directory Map (Browse Frame)
+The directory frame serves as the persistent navigation index. It queries the LogicArtifact core nodes and generates a list of triggers. When an item is selected, it routes the command through the parent window to update the other three context frames simultaneously.
+**Directory Frame Template (browse.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body { font-family: monospace; color: #cccccc; padding: 10px; }
+        ul { list-style-type: none; padding: 0; }
+        li { padding: 8px 0; border-bottom: 1px solid #444; cursor: pointer; }
+        li:hover { color: #ffffff; background-color: #333333; }
+    </style>
+</head>
+<body>
+    <h3>Library Directory</h3>
+    <input type="text" placeholder="Search logic nodes..." style="width: 90%; margin-bottom: 10px;">
+    
+    <ul id="logic-list">
+        <li onclick="requestArtifactLoad('[UUID_1]')">[Logic Title 1]</li>
+        <li onclick="requestArtifactLoad('[UUID_2]')">[Logic Title 2]</li>
+        <li onclick="requestArtifactLoad('[UUID_N]')">[Logic Title N]</li>
+    </ul>
+
+    <script>
+        /*
+          NOTATION: Global state trigger.
+          USE: Broadcasts the selected UUID to the main wrapper index.html.
+        */
+        function requestArtifactLoad(id) {
+            window.parent.postMessage({ type: 'LOAD_ARTIFACT', id: id }, '*');
+        }
+    </script>
+</body>
+</html>
+
+```
+### Frames 3 & 4: Verbose and Foundational Viewers
+These frames passively listen to the API endpoints driven by the wrapper's routing. They are designed to render human-readable narrative and raw source data, respectively.
+**Verbose Frame Template (verbose.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body { font-family: sans-serif; color: #dddddd; padding: 15px; line-height: 1.6; }
+        h2 { border-bottom: 1px solid #555; padding-bottom: 5px; }
+        .narrative-block { margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h2>[String: Logic Title]</h2>
+    <div class="narrative-block">
+        <p>[String: Complete, unambiguous language definition of the logic.]</p>
+        <p><strong>Contextual Application:</strong> [String: Description of where this logic applies or its historical origin.]</p>
+    </div>
+</body>
+</html>
+
+```
+**Foundational Data Frame Template (foundational.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body { font-family: monospace; color: #a6e22e; padding: 15px; background: #272822; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h3>Foundational Artifacts</h3>
+    <div class="data-block">
+        <strong>Source URI:</strong> <a href="[URL/URI]" style="color: #66d9ef;">[URL/URI]</a>
+        <hr style="border: 0; border-top: 1px solid #444;">
+        <pre><code>
+[JSONB/Text: Raw foundational data payload]
+        </code></pre>
+    </div>
+</body>
+</html>
+
+```
+### Backend Data Pipeline: Routing and Extraction Map
+To support the decoupled UI, the backend must operate as an automated pipeline that queries the atomic graph and serves the specific fragment requested by the iframe.
+**Backend Routing Template (Python)**
+```python
+"""
+NOTATION: Backend API Router Map.
+USE: Generalized form for intercepting iframe requests, querying the relational graph, and returning the HTML templates injected with atomic data.
+"""
+
+# [IMPORTS: Framework (e.g., FastAPI, Flask), Database Connector]
+
+def get_logic_artifact(artifact_id: str) -> dict:
+    """
+    NOTATION: Database retrieval engine.
+    USE: Queries the primary LogicArtifact table and joins LogicRelationship edges.
+    """
+    query = """
+        SELECT title, condensed_logic, verbose_desc, foundational_data 
+        FROM LogicArtifact 
+        WHERE artifact_id = ?
+    """
+    # [EXECUTE QUERY with artifact_id]
+    # [RETURN Dictionary Map of Results]
+    return {
+        "title": "[String]",
+        "condensed": "[String]",
+        "verbose": "[String]",
+        "foundational": "[JSON]"
+    }
+
+# --- ENDPOINT MAPS ---
+
+# Route: /ui/condensed/{artifact_id}
+def render_condensed_frame(artifact_id: str):
+    """
+    NOTATION: Condensed logic renderer.
+    USE: Fetches node, parses relationships into hyperlink triggers, serves condensed.html.
+    """
+    data = get_logic_artifact(artifact_id)
+    # [INJECT data["condensed"] into condensed.html template]
+    # [RETURN HTML Response]
+
+# Route: /ui/verbose/{artifact_id}
+def render_verbose_frame(artifact_id: str):
+    """
+    NOTATION: Verbose narrative renderer.
+    USE: Fetches node, serves verbose.html with natural language payload.
+    """
+    data = get_logic_artifact(artifact_id)
+    # [INJECT data["verbose"] into verbose.html template]
+    # [RETURN HTML Response]
+
+# Route: /ui/foundational/{artifact_id}
+def render_foundational_frame(artifact_id: str):
+    """
+    NOTATION: Foundational data renderer.
+    USE: Fetches node, serves foundational.html with raw JSON/code payload.
+    """
+    data = get_logic_artifact(artifact_id)
+    # [INJECT data["foundational"] into foundational.html template]
+    # [RETURN HTML Response]
+
+```
