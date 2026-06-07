@@ -1,0 +1,125 @@
+Here is the structural design for a decoupled logical knowledge system. This architecture isolates atomic data artifacts from their relationships and display methods, utilizing a graph-based relational model alongside a modular, grid-based iframe UI interface. This ensures independent loading of distinct logic representations without page refreshes.
+### Database Architecture: The Atomic Graph
+To support highly interrelated logical artifacts, a relational schema with adjacency mapping (or a dedicated graph database) is required. The structure is separated into primary artifacts and their connective edges.
+**Table: LogicArtifact (Core Nodes)**
+
+| Column Name | Data Type | Description |
+| :--- | :--- | :--- |
+| artifact_id | UUID (Primary Key) | Unique identifier for the logical node. |
+| title | VARCHAR | System-friendly name of the logic. |
+| condensed_logic | TEXT / JSON | Symbolic, mathematical, or algorithmic representation. |
+| verbose_desc | TEXT | Natural language definition for human comprehension. |
+| foundational_data | JSONB | Raw data, statistical evidence, or code schemas. | <br> **Table: LogicRelationship (Connective Edges)**
+| Column Name | Data Type | Description |
+| :--- | :--- | :--- |
+| source_id | UUID (Foreign Key) | The origin logic artifact. |
+| target_id | UUID (Foreign Key) | The destination logic artifact. |
+| relationship_type | VARCHAR | Nature of connection (e.g., *implies*, *contradicts*, *extends*). |
+
+### Machine-Readable Data Map: JSON Output
+The system must serialize these records into standardized formats. Below is a generic, fillable form structure for API transit, serving as a machine-readable map of a single logical node.
+```json
+{
+  "_notation": "TEMPLATE: Fillable form for atomic logic artifact retrieval. Target for ingestion engines.",
+  "artifact_id": "[UUID]",
+  "title": "[String: Core concept name]",
+  "representations": {
+    "condensed": "[String/Symbols: e.g., A -> B, strict logical format]",
+    "verbose": "[String: Complete narrative description]",
+    "foundational": {
+      "source_url": "[URL/URI]",
+      "raw_values": "[Array/Object: Foundational metrics or statutes]"
+    }
+  },
+  "interrelationships": [
+    {
+      "target_id": "[UUID]",
+      "type": "[String: Relationship classification]",
+      "uri": "/api/logic/[UUID]"
+    }
+  ]
+}
+```
+### UI Skeleton: The 4-Frame Matrix
+To achieve the decoupled loading behavior without full page reloads, the main library page acts as a structural wrapper. It uses CSS Grid to manage four modern <iframe> elements, ensuring that traversing a hyperlink updates only the relevant data frames.
+**Main Wrapper Code (index.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logical Knowledge System</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 250px 1fr 1fr;
+            grid-template-rows: 50% 50%;
+            grid-template-areas: 
+                "browse condensed verbose"
+                "browse foundational foundational";
+            font-family: monospace;
+            background-color: #1e1e1e;
+        }
+        iframe {
+            border: 1px solid #333;
+            width: 100%;
+            height: 100%;
+            background-color: #2d2d2d;
+        }
+        #frame-browse { grid-area: browse; }
+        #frame-condensed { grid-area: condensed; }
+        #frame-verbose { grid-area: verbose; }
+        #frame-foundational { grid-area: foundational; }
+    </style>
+</head>
+<body>
+    <iframe id="frame-browse" src="browse.html" name="browse_target"></iframe>
+    <iframe id="frame-condensed" src="placeholder_condensed.html" name="condensed_target"></iframe>
+    <iframe id="frame-verbose" src="placeholder_verbose.html" name="verbose_target"></iframe>
+    <iframe id="frame-foundational" src="placeholder_foundational.html" name="foundational_target"></iframe>
+    <script>
+        /*
+          NOTATION: Global navigation handler.
+          USE: Triggered by hyperlinks inside the iframes to independently load the 3 view components for a selected artifact.
+        */
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'LOAD_ARTIFACT') {
+                const artifactId = event.data.id;
+                
+                // Route target frames to their specific API endpoints or static HTML maps
+                document.getElementById('frame-condensed').src = `/ui/condensed/${artifactId}`;
+                document.getElementById('frame-verbose').src = `/ui/verbose/${artifactId}`;
+                document.getElementById('frame-foundational').src = `/ui/foundational/${artifactId}`;
+            }
+        });
+    </script>
+</body>
+</html>
+```
+### Frame Interaction Mechanics
+When rendering the **Condensed Logic Frame** (/ui/condensed/{id}), the UI must present interrelated logical artifacts as functional hyperlinks. Clicking a link should not navigate the individual frame away from the system, but rather instruct the parent wrapper to load the new logic map across all three viewing frames.
+**Condensed Frame Template (condensed.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <h3>Logic: Modus Ponens</h3>
+    <div class="logic-block">
+        If <a href="#" onclick="requestArtifactLoad('uuid-001')">P</a>, 
+        then <a href="#" onclick="requestArtifactLoad('uuid-002')">Q</a>.
+    </div>
+    <script>
+        /*
+          NOTATION: Artifact request trigger.
+          USE: Sends the target UUID up to the main wrapper to update the whole UI state.
+        */
+        function requestArtifactLoad(id) {
+            window.parent.postMessage({ type: 'LOAD_ARTIFACT', id: id }, '*');
+        }
+    </script>
+</body>
+</html>
+```
