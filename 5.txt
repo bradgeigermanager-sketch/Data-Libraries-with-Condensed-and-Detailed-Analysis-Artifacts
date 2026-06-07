@@ -1,0 +1,206 @@
+Here is the structural map for the CRUD administrative interface and the authoring workflows. This component provides the necessary UI and backend routing for humans or automated agents to draft, validate, and inject new logical artifacts into the atomic graph without directly touching the database or raw JSON files.
+### 1. Administrative UI: The Authoring Map (HTML)
+This form serves as the primary data entry point. It is designed to capture the core logic node and dynamically append relational edges before packaging the payload into the standardized JSON map for ingestion.
+**Admin Form Template (admin_insert.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body { font-family: monospace; color: #dddddd; background-color: #1e1e1e; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #a6e22e; }
+        input[type="text"], textarea, select { 
+            width: 100%; padding: 8px; background: #2d2d2d; color: #fff; border: 1px solid #555; 
+        }
+        textarea { height: 100px; resize: vertical; }
+        .relationship-block { border: 1px dashed #555; padding: 10px; margin-bottom: 10px; }
+        button { padding: 10px 15px; background: #66d9ef; color: #000; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #46b8ce; }
+    </style>
+</head>
+<body>
+    <h2>Author Logic Artifact</h2>
+    
+    <form id="logic-author-form">
+        <div class="form-group">
+            <label>Artifact UUID (Leave blank for auto-generation)</label>
+            <input type="text" id="input-uuid" placeholder="e.g., 123e4567-e89b-12d3-a456-426614174000">
+        </div>
+
+        <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="input-title" required placeholder="Core concept name">
+        </div>
+
+        <div class="form-group">
+            <label>Condensed Logic</label>
+            <textarea id="input-condensed" required placeholder="Use [[UUID|Text]] for links. E.g., If [[id|A]], then B."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Verbose Description</label>
+            <textarea id="input-verbose" required placeholder="Complete narrative description..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Foundational Data (Valid JSON)</label>
+            <textarea id="input-foundational" placeholder='{"source_url": "...", "raw_values": []}'></textarea>
+        </div>
+
+        <hr style="border-color: #444;">
+        
+        <h3>Interrelationships</h3>
+        <div id="relationships-container">
+            </div>
+        <button type="button" onclick="addRelationshipField()">+ Add Edge</button>
+        
+        <hr style="border-color: #444; margin-top: 20px;">
+        <button type="submit">Commit to Pipeline</button>
+    </form>
+
+    <script src="admin_workflow.js"></script>
+</body>
+</html>
+
+```
+### 2. Client-Side Transit Map (JavaScript)
+This script manages the dynamic elements of the authoring form, compiles the inputs into the expected fillable-form JSON structure, and transmits it to the backend ingestion API.
+**Admin Workflow Script (admin_workflow.js)**
+```javascript
+/*
+  NOTATION: Client-Side Data Compiler.
+  USE: Orchestrates the admin form, handles UUID generation, packages the payload, and executes the POST request to the API.
+*/
+
+// Dynamically add relationship fields
+function addRelationshipField() {
+    const container = document.getElementById('relationships-container');
+    const block = document.createElement('div');
+    block.className = 'relationship-block';
+    
+    // Fillable form elements for edge mapping
+    block.innerHTML = `
+        <input type="text" class="rel-target" placeholder="Target UUID" style="width: 45%;" required>
+        <select class="rel-type" style="width: 45%; margin-left: 5%;">
+            <option value="implies">Implies</option>
+            <option value="contradicts">Contradicts</option>
+            <option value="extends">Extends</option>
+            <option value="requires">Requires</option>
+        </select>
+        <button type="button" onclick="this.parentElement.remove()" style="margin-top: 5px; background: #f92672; color: white;">Remove</button>
+    `;
+    container.appendChild(block);
+}
+
+// Intercept form submission and build JSON map
+document.getElementById('logic-author-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Generate standard payload map
+    const payload = {
+        "_notation": "TEMPLATE: Fillable form for atomic logic artifact retrieval. Target for ingestion engines.",
+        "artifact_id": document.getElementById('input-uuid').value || crypto.randomUUID(),
+        "title": document.getElementById('input-title').value,
+        "representations": {
+            "condensed": document.getElementById('input-condensed').value,
+            "verbose": document.getElementById('input-verbose').value,
+            "foundational": {}
+        },
+        "interrelationships": []
+    };
+
+    // Safely parse foundational JSON if provided
+    const rawFoundational = document.getElementById('input-foundational').value;
+    if (rawFoundational.trim() !== '') {
+        try {
+            payload.representations.foundational = JSON.parse(rawFoundational);
+        } catch (error) {
+            alert("Foundational Data must be valid JSON.");
+            return;
+        }
+    }
+
+    // Extract relationships
+    const relBlocks = document.querySelectorAll('.relationship-block');
+    relBlocks.forEach(block => {
+        payload.interrelationships.push({
+            "target_id": block.querySelector('.rel-target').value,
+            "type": block.querySelector('.rel-type').value,
+            "uri": `/api/logic/${block.querySelector('.rel-target').value}`
+        });
+    });
+
+    // Transmit to Backend Receiver
+    try {
+        const response = await fetch('/api/admin/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            alert('Artifact successfully committed to the database.');
+            this.reset();
+            document.getElementById('relationships-container').innerHTML = '';
+        } else {
+            alert('Ingestion pipeline rejected the payload.');
+        }
+    } catch (error) {
+        console.error('Transit failure:', error);
+    }
+});
+
+```
+### 3. Backend Receiver Map (Python/API)
+This is the API endpoint that catches the POST request from the admin interface. It acts as a bridge, accepting the JSON payload over HTTP and feeding it directly into the ingest_logic_artifact function designed previously.
+**Receiver Endpoint Map (Python Framework Agnostic)**
+```python
+"""
+NOTATION: Backend Ingestion Receiver.
+USE: Exposes a POST endpoint to receive compiled JSON payloads from the admin interface, bypassing file-system ingestion and writing directly to the SQL engine.
+"""
+
+import json
+# [IMPORTS: Framework specifics (FastAPI/Flask), Database Connector, ingest_logic_artifact logic]
+
+# Route: POST /api/admin/ingest
+def handle_ingestion_request(request_payload: dict):
+    """
+    NOTATION: API Receiver.
+    USE: Accepts the dict, maps it to the database insert routines.
+    """
+    try:
+        # Re-using the logic from the previously mapped Data Ingestion Pipeline
+        # but adapting it to receive dictionary memory rather than a file path.
+        
+        artifact_id = request_payload.get("artifact_id")
+        title = request_payload.get("title")
+        condensed = request_payload.get("representations", {}).get("condensed", "")
+        verbose = request_payload.get("representations", {}).get("verbose", "")
+        
+        # Ensure foundational data is serialized to JSON string for the DB
+        foundational = json.dumps(request_payload.get("representations", {}).get("foundational", {}))
+        relationships = request_payload.get("interrelationships", [])
+
+        # [EXECUTE SQL UPSERT logic documented in previous database schema]
+        # Example pseudo-call:
+        # db.execute_upsert_artifact(artifact_id, title, condensed, verbose, foundational)
+        # db.execute_replace_edges(artifact_id, relationships)
+
+        return {"status": "success", "message": f"Artifact {artifact_id} ingested."}
+
+    except Exception as e:
+        # Return standard error form
+        return {"status": "error", "message": str(e)}, 500
+
+```
+### 4. Authoring Workflow Map
+To utilize these tools effectively, administrators or system users adhere to the following sequence to populate the graph:
+ 1. **Draft Node Identity:** The author opens the admin UI. They provide a clear, system-friendly Title and leave the Artifact UUID blank to allow the system to generate a unique cryptographic ID, unless they are updating an existing node.
+ 2. **Input Raw Logic:** The author writes the Verbose Description using complete sentences.
+ 3. **Cross-Reference Generation:** The author uses a secondary browser window mapped to the system's "Browse" frame to find UUIDs of existing logic that connects to this new concept.
+ 4. **Format Condensed Map:** The author writes the Condensed Logic. Whenever an existing concept is referenced, they use the exact notation format: [[UUID|Display Text]].
+ 5. **Append Edges:** The author clicks "+ Add Edge" for every required relationship, pasting the target UUIDs and selecting the relational vector (e.g., *implies*, *requires*).
+ 6. **Pipeline Commit:** Submitting the form compiles the artifacts into the JSON standard and fires it to the receiver. The node is immediately available in the UI without a system restart.
+ 
