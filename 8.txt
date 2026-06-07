@@ -1,0 +1,44 @@
+This is a highly effective expansion of the ecosystem. By establishing standardized ingestion workflows, the system transitions from a closed library into an active processing engine capable of distilling external knowledge graphs into atomic logic.
+Below are the structural maps and checklists for information derivation. They are separated into **Agentic** (machine-driven, automated pipelines) and **Human** (living user, curated synthesis) workflows, starting with the generalized derivation routine.
+### Part 1: Generalized Information Source Extraction Map
+This routine is designed to map any unstructured data source (e.g., whitepapers, statutes, news articles, or raw datasets) into the system's strict logical architecture.
+#### 1A. Agentic LLM Workflow (Automated Pipeline)
+**NOTATION:** Generalized Automated Derivation Engine.
+**USE:** A programmatic pipeline where an autonomous agent ingests raw text, parses it for causal or definitional relationships, and autonomously POSTs the standardized JSON map to the database receiver.
+**Processing Sequence:**
+ 1. **Ingestion & Chunking:** Retrieve unstructured text via scraper or API. Segment into discrete thematic chunks.
+ 2. **Semantic Triangulation:** Analyze text for logical operators (e.g., "therefore", "requires", "is defined as", "contradicts").
+ 3. **Artifact Generation:** Translate semantic findings into the condensed_logic string structure using [[UUID|Text]] placeholders for entity extraction.
+ 4. **Edge Mapping:** Query the existing library via the /api/directory endpoint. If an entity exists, retrieve its UUID. If not, generate a new UUID and queue it for artifact creation.
+ 5. **Payload Compilation:** Assemble the fillable_schema JSON transit map.
+ 6. **Commit:** Transmit to /api/admin/ingest.
+**Agentic Checklist (Execution Verifiers):**
+
+| Phase | Verification Trigger | Target State |
+| :--- | :--- | :--- |
+| **Parsing** | verify_claim_isolation() | Text chunk contains at least one explicit premise and conclusion. |
+| **Parsing** | verify_no_hallucination() | The generated verbose description maps exactly to the source text without extrapolation. |
+| **Mapping** | verify_uuid_integrity() | All generated logical links reference valid system UUIDs or newly queued UUIDs. |
+| **Formatting** | verify_json_schema() | Payload strictly adheres to the atomic logic JSON standard. |
+| **Transit** | verify_200_OK() | Ingestion endpoint accepts the payload. | <br> #### 1B. Living User Workflow (Curated Synthesis) <br> **NOTATION:** Generalized Human Derivation Routine. <br> **USE:** Step-by-step methodology for a human analyst to read an external document, extract core concepts, and utilize the Admin UI to map the knowledge. <br> **Processing Sequence:** <br> 1. **Isolation:** Read the source material and isolate the core mechanism, law, or philosophical premise. Ignore rhetorical filler. <br> 2. **Distillation:** Draft the concept into a single, strict conditional statement (If A, then B) or a definitional formula. <br> 3. **Cross-Referencing:** Search the Browse Matrix (browse.html) for existing nodes that relate to the drafted concept. <br> 4. **Authoring:** Open admin_insert.html. Input the strict logic, write the verbose explanation, and paste the source URL into the Foundational Data field. <br> 5. **Edge Binding:** Establish interrelationships (e.g., *extends*, *contradicts*) using the UI dropdowns. <br> **Living User Checklist:** <br> * [ ] Is the core concept entirely decoupled from the specific author's opinion (unless the opinion *is* the artifact)? <br> * [ ] Does the Verbose Description provide enough context that a reader who has never seen the source document can understand it? <br> * [ ] Is the source URI firmly embedded in the Foundational Data JSON field for future audit trails? <br> * [ ] Have I linked this new artifact to at least one existing node to prevent orphaned logic? <br> ### Part 2: Wikipedia-Specific Extraction Map <br> Wikipedia provides highly structured, interconnected data. This workflow exploits Wikipedia's native architecture (infoboxes, categories, and interwiki links) to rapidly construct dense logical graphs. <br> #### 2A. Agentic LLM Workflow (Wikipedia API Parsing) <br> **NOTATION:** Wikipedia-Specific Automated Ingestion Pipeline. <br> **USE:** Deployed against the MediaWiki API. Targets specific articles to extract definitional logic and map interwiki links directly to system relationship edges. <br> **Processing Sequence:** <br> 1. **Target Acquisition:** Ping MediaWiki API for a specific page title or category tree. <br> 2. **Summary Extraction:** Ingest the introductory summary paragraph. Parse this strictly as the Verbose Description. <br> 3. **Infobox/Category Parsing:** Extract structured metadata from the Wikipedia Infobox. Map these key-value pairs directly into the Foundational Data JSON block. <br> 4. **Link Transformation:** Scan the HTML for <a href="/wiki/..."> tags within the summary. Cross-reference these against the system library. Convert relevant Wiki-links into internal [[UUID|Text]] links within the Condensed Logic. <br> 5. **Edge Generation:** Treat Wikipedia "See Also" links as target UUIDs with a generic relates_to relationship edge. <br> 6. **Commit:** Transmit to /api/admin/ingest. <br> **Agentic Checklist (MediaWiki Verifiers):**
+| Phase | Verification Trigger | Target State |
+| :--- | :--- | :--- |
+| **API** | verify_namespace() | Target article is in Namespace 0 (Main), excluding User or Talk pages. |
+| **Parsing** | verify_disambiguation() | Article is not a disambiguation page. If yes, halt and request human targeting. |
+| **Formatting** | map_infobox_to_json() | Infobox parameters are cleanly converted to a nested JSON object in foundational_data. |
+| **Mapping** | resolve_redirects() | MediaWiki API redirects are resolved to their canonical page title before UUID mapping. |
+
+#### 2B. Living User Workflow (Wikipedia Curation)
+**NOTATION:** Wikipedia Human Curation Routine.
+**USE:** Methodology for a human to utilize Wikipedia not just as an encyclopedia, but as a scaffold for mapping complex historical, scientific, or narrative ecosystems into the UI.
+**Processing Sequence:**
+ 1. **Core Anchor Generation:** Create a primary logic node for the main Wikipedia article subject.
+ 2. **Premise Extraction:** Read the article's sub-sections. For every sub-section that details a distinct mechanism, rule, or historical event, create a secondary logic node.
+ 3. **Sub-System Linking:** Use the Admin UI to map all secondary nodes back to the primary anchor using requires or extends relationships.
+ 4. **Conflict Mapping:** Review the "Controversies" or "Criticism" sections of the Wikipedia article. Create logic nodes for opposing viewpoints and link them using the contradicts relationship edge.
+**Living User Checklist:**
+ * [ ] Have I accurately captured the primary definition from the article's lead paragraph?
+ * [ ] Did I explicitly map the Wikipedia Permalink (using the permanent specific revision ID, not just the general URL) into the Foundational Data to ensure source immutability?
+ * [ ] Have I converted the most critical "See Also" links into active relationship edges in the Admin UI?
+ * [ ] Are competing theories or criticisms represented as distinct artifacts with a contradicts edge, rather than being mashed into the primary node's description?
+As this ingestion engine begins pulling in external logic, how should the system handle direct contradictions between newly ingested automated data and pre-existing human-verified artifacts within the database?
