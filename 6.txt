@@ -1,0 +1,200 @@
+To ensure this knowledge system operates as a robust, enterprise-grade library, we must implement containerization for decoupled deployment, and establish strict versioning and immutability protocols. Logical artifacts, once established as foundational records, should never be quietly overwritten; they must be versioned to preserve historical context and logical lineage.
+Here are the structural maps for deployment, versioning, and database immutability.
+### 1. Database Immutability & Versioning Schema (SQL)
+To achieve immutability, the system shifts to an **append-only** architecture. When a logic artifact is modified, the system generates a new UUID for the updated node, preserves the old node, and creates a specific relationship edge (e.g., supersedes) linking the new to the old. Database triggers enforce this by blocking arbitrary UPDATE or DELETE commands on the core table.
+```sql
+/*
+  NOTATION: Immutability & Versioning Enforcement Map.
+  USE: Execute against PostgreSQL to establish an append-only structure. Prevents data destruction and forces version tracking via relationship edges.
+*/
+
+-- 1. Create a specific Relationship Type for versioning
+-- Assuming LogicRelationship table exists from previous map.
+-- Example Edge: source_id (New v2 UUID), target_id (Old v1 UUID), relationship_type = 'supersedes'
+
+-- 2. Prevent DELETE operations on LogicArtifact
+CREATE OR REPLACE FUNCTION prevent_artifact_deletion()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Immutability Violation: Logical artifacts cannot be deleted. Use deprecation tags or supersede them with a new version.';
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_no_delete
+BEFORE DELETE ON LogicArtifact
+FOR EACH ROW EXECUTE FUNCTION prevent_artifact_deletion();
+
+-- 3. Prevent UPDATE operations on Core Fields
+CREATE OR REPLACE FUNCTION prevent_artifact_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Allow updates ONLY to metadata like 'updated_at' or a new 'status' column (e.g., 'deprecated')
+    IF NEW.condensed_logic <> OLD.condensed_logic OR 
+       NEW.verbose_desc <> OLD.verbose_desc OR 
+       NEW.foundational_data <> OLD.foundational_data THEN
+        RAISE EXCEPTION 'Immutability Violation: Core logic cannot be mutated. Author a new artifact and link it via a "supersedes" relationship.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_no_update
+BEFORE UPDATE ON LogicArtifact
+FOR EACH ROW EXECUTE FUNCTION prevent_artifact_mutation();
+
+```
+### 2. Versioning Controller Pipeline (Python)
+When the Admin UI attempts to update an existing node, the backend must intercept this, generate a new UUID, and wire the historical relationships automatically.
+```python
+"""
+NOTATION: Artifact Versioning Engine.
+USE: Intercepts update requests. Instead of mutating the database, it creates a new artifact clone with the modifications and establishes a 'supersedes' relational edge to maintain the unbroken chain of logic.
+"""
+
+import uuid
+# [IMPORTS: Framework specifics, Database Connector]
+
+def version_logic_artifact(old_artifact_id: str, updated_payload: dict, db_connection_string: str):
+    """
+    NOTATION: Versioning routine.
+    USE: Generates a new node and links it backwards in time to the parent node.
+    """
+    new_artifact_id = str(uuid.uuid4())
+    
+    # 1. Extract new core data
+    title = updated_payload.get("title")
+    condensed = updated_payload.get("representations", {}).get("condensed", "")
+    verbose = updated_payload.get("representations", {}).get("verbose", "")
+    foundational = json.dumps(updated_payload.get("representations", {}).get("foundational", {}))
+    new_relationships = updated_payload.get("interrelationships", [])
+    
+    # 2. Append the chronological/versioning edge automatically
+    new_relationships.append({
+        "target_id": old_artifact_id,
+        "type": "supersedes"
+    })
+    
+    # [EXECUTE SQL INSERTS]
+    # Insert new core node using `new_artifact_id`
+    # Insert new relationship edges, including the 'supersedes' link
+    # (Optional) Execute an allowed UPDATE on the old artifact to change a 'status' column to 'deprecated'
+
+    return {"status": "success", "new_version_id": new_artifact_id, "superseded_id": old_artifact_id}
+
+```
+### 3. Containerization Maps (Docker)
+To ensure this decoupled architecture runs identically across development, testing, and production environments, the system must be packaged into isolated containers.
+**Backend API Container Map (Dockerfile)**
+```dockerfile
+# NOTATION: Backend API Image Map.
+# USE: Standardized build instructions for the Python routing, parsing, and database connection engines.
+
+# Use a lightweight, secure base image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Ingest dependencies map
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Ingest core application code
+COPY . /app
+
+# Expose API port
+EXPOSE 8000
+
+# Specify execution engine (e.g., Uvicorn for FastAPI)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+```
+**Deployment Orchestration Map (docker-compose.yml)**
+This configuration bridges the database, the backend API, and the static HTML/JS frontend into a unified, networked ecosystem.
+```yaml
+# NOTATION: System Orchestration Map.
+# USE: Deploys the knowledge system matrix. Run via `docker-compose up -d`.
+
+version: '3.8'
+
+services:
+  # Container 1: The Relational Graph Engine
+  database:
+    image: postgres:15-alpine
+    container_name: logic_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-logic_admin}
+      POSTGRES_PASSWORD: ${DB_PASS:-secure_password}
+      POSTGRES_DB: logic_knowledge_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - logic_db_data:/var/lib/postgresql/data
+      # Auto-load the SQL schema maps on initialization
+      - ./init_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+
+  # Container 2: Backend Pipeline & API
+  api_engine:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: logic_api
+    depends_on:
+      - database
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-logic_admin}:${DB_PASS:-secure_password}@database:5432/logic_knowledge_system
+    ports:
+      - "8000:8000"
+    restart: always
+
+  # Container 3: UI Web Server (4-Frame Matrix Host)
+  ui_server:
+    image: nginx:alpine
+    container_name: logic_ui
+    ports:
+      - "80:80"
+    volumes:
+      # Map the local UI skeletal HTML/JS files to Nginx serving directory
+      - ./frontend:/usr/share/nginx/html
+      # Mount Nginx configuration for proper API proxying
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api_engine
+    restart: always
+
+# Persistent storage for immutable graph data
+volumes:
+  logic_db_data:
+
+```
+### 4. Nginx Reverse Proxy Map
+To prevent cross-origin resource sharing (CORS) conflicts between the 4-frame frontend and the Python backend, the UI container uses Nginx to route API requests internally.
+**Routing Configuration (nginx.conf)**
+```nginx
+# NOTATION: Proxy Routing Map.
+# USE: Intercepts /api/ calls from the UI iframes and passes them safely to the Python backend container.
+
+server {
+    listen 80;
+    server_name localhost;
+
+    # Serve the static 4-frame matrix UI
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+
+    # Route dynamic data transit requests to the API engine
+    location /api/ {
+        proxy_pass http://api_engine:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+```
+
