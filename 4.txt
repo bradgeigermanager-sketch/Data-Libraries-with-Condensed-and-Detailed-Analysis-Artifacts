@@ -1,0 +1,158 @@
+To complete the architecture of this knowledge system, we must implement the bidirectional data flow (exporting the graph back into atomic JSON payloads), the backend directory population logic for the Browse frame, and the automated testing harness to maintain the integrity of the data pipelines.
+Here are the additional structural maps required for a fully operational system.
+### Browse Directory Backend Pipeline
+The browse.html frame requires a dynamic feed of all available logical artifacts. This component maps the database query to the lightweight list needed for the UI directory.
+```python
+"""
+NOTATION: Directory Population Engine.
+USE: Queries the database for all core artifacts to generate the navigation index. Returns a lightweight map of UUIDs and titles.
+"""
+
+# [IMPORTS: Framework (e.g., FastAPI, Flask), Database Connector]
+
+def get_directory_index(db_connection_string: str) -> list:
+    """
+    NOTATION: Index retrieval map.
+    USE: Pulls a consolidated list of logic nodes, ordered alphabetically for the Browse frame.
+    """
+    import sqlite3 
+    
+    conn = sqlite3.connect(db_connection_string)
+    cursor = conn.cursor()
+    
+    try:
+        # Retrieve only the necessary identifying fields
+        cursor.execute("SELECT artifact_id, title FROM LogicArtifact ORDER BY title ASC")
+        rows = cursor.fetchall()
+        
+        # Structure into a list of fillable dictionaries
+        index_map = [
+            {"artifact_id": row[0], "title": row[1]} 
+            for row in rows
+        ]
+        return index_map
+    except Exception as e:
+        print(f"Directory retrieval failed: {e}")
+        return []
+    finally:
+        conn.close()
+
+# Route: /api/directory
+def render_directory_api():
+    """
+    NOTATION: API Endpoint for Browse UI.
+    USE: Serves the JSON array to be consumed by the browse.html JavaScript to populate the <li> elements.
+    """
+    # [EXECUTE get_directory_index()]
+    # [RETURN JSON array]
+
+```
+### Bidirectional Export Engine
+To maintain the system as a decoupled ecosystem, data must flow out just as easily as it flows in. This engine reconstructs the atomic JSON artifacts from the relational graph, allowing for library backups, migrations, or ingestion by secondary systems.
+```python
+"""
+NOTATION: Bidirectional JSON Export Engine.
+USE: Reverses the ingestion process. Extracts a single logic node and its relationships from the SQL database and serializes it back into the standardized JSON machine-readable map.
+"""
+
+import json
+import sqlite3
+
+def export_logic_artifact(artifact_id: str, db_connection_string: str) -> str:
+    """
+    NOTATION: Serialization routine.
+    USE: Reconstructs the fillable-form JSON format for a specific UUID.
+    """
+    conn = sqlite3.connect(db_connection_string)
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Retrieve Core Artifact
+        cursor.execute("""
+            SELECT title, condensed_logic, verbose_desc, foundational_data 
+            FROM LogicArtifact 
+            WHERE artifact_id = ?
+        """, (artifact_id,))
+        core_row = cursor.fetchone()
+        
+        if not core_row:
+            return "{}" # Return empty map if not found
+
+        # 2. Retrieve Relationships
+        cursor.execute("""
+            SELECT target_id, relationship_type 
+            FROM LogicRelationship 
+            WHERE source_id = ?
+        """, (artifact_id,))
+        rel_rows = cursor.fetchall()
+        
+        # 3. Assemble JSON Map
+        export_map = {
+            "_notation": "TEMPLATE: Fillable form for atomic logic artifact retrieval. Target for ingestion engines.",
+            "artifact_id": artifact_id,
+            "title": core_row[0],
+            "representations": {
+                "condensed": core_row[1],
+                "verbose": core_row[2],
+                "foundational": json.loads(core_row[3]) if core_row[3] else {}
+            },
+            "interrelationships": [
+                {
+                    "target_id": rel[0],
+                    "type": rel[1],
+                    "uri": f"/api/logic/{rel[0]}"
+                } for rel in rel_rows
+            ]
+        }
+        
+        return json.dumps(export_map, indent=2)
+        
+    finally:
+        conn.close()
+
+```
+### Automated Testing Harness
+To adhere to strict maintenance and testing protocols, a foundational test suite is required to validate the parsing logic and ingestion functions without requiring a live database.
+```python
+"""
+NOTATION: Automated Unit Testing Map.
+USE: Validates the integrity of the regex parsing engine and data transformation layers. Run via a testing framework like pytest.
+"""
+
+import unittest
+# [IMPORT parse_logical_links from regex engine module]
+
+class TestLogicSystem(unittest.TestCase):
+    
+    def test_link_parser_standard(self):
+        """
+        NOTATION: Standard link validation.
+        USE: Confirms single UUID and text pairs are correctly transformed into DOM elements.
+        """
+        raw = "Therefore, [[550e8400-e29b-41d4-a716-446655440000|Socrates is mortal]]."
+        expected = 'Therefore, <a href="#" onclick="requestArtifactLoad(\'550e8400-e29b-41d4-a716-446655440000\')" class="logic-link">Socrates is mortal</a>.'
+        self.assertEqual(parse_logical_links(raw), expected)
+
+    def test_link_parser_multiple(self):
+        """
+        NOTATION: Multi-link validation.
+        USE: Confirms multiple logical links in the same string do not cause regex collisions.
+        """
+        raw = "[[uuid-1|A]] AND [[uuid-2|B]]"
+        expected = '<a href="#" onclick="requestArtifactLoad(\'uuid-1\')" class="logic-link">A</a> AND <a href="#" onclick="requestArtifactLoad(\'uuid-2\')" class="logic-link">B</a>'
+        self.assertEqual(parse_logical_links(raw), expected)
+
+    def test_link_parser_no_links(self):
+        """
+        NOTATION: Null link validation.
+        USE: Confirms standard text without logical mappings remains unaltered.
+        """
+        raw = "A implies B."
+        self.assertEqual(parse_logical_links(raw), raw)
+
+if __name__ == '__main__':
+    unittest.main()
+
+```
+Which layer of this ecosystem should we map next: the deployment/containerization scripts, or the specific CRUD administrative interface for authors adding new logic?
+
