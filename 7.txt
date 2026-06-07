@@ -1,0 +1,175 @@
+To elevate this ecosystem from a purely theoretical logic graph into a functional repository for reusable machine-readable maps, templates, and structural schemas, the core architecture must be expanded to polymorphically handle different artifact types.
+By categorizing records at the database layer, the system can natively store, test, and retrieve generalized, fillable-form code with explicit usage notations, seamlessly integrating these assets alongside the logical concepts that govern them.
+Here are the structural upgrades required to support this unified library.
+### 1. Database Upgrade: Polymorphic Artifact Support (SQL)
+The core table must be modified to distinguish between an abstract logic node and an actionable code template. This allows the backend to route the data differently based on its utility.
+```sql
+/*
+  NOTATION: Database Schema Expansion Map.
+  USE: Execute against existing PostgreSQL database to add typing and language classification to the core table.
+*/
+
+-- Step 1: Add classification columns
+ALTER TABLE LogicArtifact 
+ADD COLUMN artifact_category VARCHAR(50) DEFAULT 'logic_node', -- e.g., 'logic_node', 'machine_map', 'fillable_schema'
+ADD COLUMN syntax_language VARCHAR(50) DEFAULT 'text'; -- e.g., 'python', 'sql', 'json_ld', 'html'
+
+-- Step 2: Index the new category for rapid filtering in the Browse UI
+CREATE INDEX idx_artifact_category ON LogicArtifact(artifact_category);
+
+-- Step 3: Update Immutability Triggers (from previous implementation)
+-- Ensure the new columns are included in the immutability enforcement rules so that schemas cannot be mutated without a 'supersedes' version edge.
+CREATE OR REPLACE FUNCTION prevent_artifact_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.condensed_logic <> OLD.condensed_logic OR 
+       NEW.verbose_desc <> OLD.verbose_desc OR 
+       NEW.foundational_data <> OLD.foundational_data OR
+       NEW.artifact_category <> OLD.artifact_category OR
+       NEW.syntax_language <> OLD.syntax_language THEN
+        RAISE EXCEPTION 'Immutability Violation: Core artifacts, including generic templates, cannot be mutated. Author a new version and link it via a "supersedes" edge.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+```
+### 2. Standardized Template Transit Map (JSON)
+When an artifact is classified as a machine_map or fillable_schema, the JSON transit payload must strictly enforce inclusion of the standardized header notations so the code's intended use and fillable variables are immediately parseable by automated ingestion engines or human operators.
+```json
+{
+  "_notation": "TEMPLATE: Standardized envelope for reusable code artifacts and schemas.",
+  "artifact_id": "[UUID]",
+  "title": "[String: E.g., Atomic JSON-LD Header Map]",
+  "artifact_category": "fillable_schema",
+  "syntax_language": "json",
+  "representations": {
+    "condensed": "{\n  \"@context\": \"[FILL: URI]\",\n  \"@type\": \"[FILL: Schema Type]\"\n}",
+    "verbose": "[String: Detailed explanation of when and why to deploy this specific schema form.]",
+    "foundational": {
+      "notation": "[String: Core purpose of the map]",
+      "use": "[String: Specific triggers or deployment environments]",
+      "fillable_variables": [
+        {"var": "[FILL: URI]", "type": "string", "description": "The authoritative namespace URL."},
+        {"var": "[FILL: Schema Type]", "type": "string", "description": "The exact class definition."}
+      ]
+    }
+  },
+  "interrelationships": [
+    {
+      "target_id": "[UUID: Link to the theoretical logic node that justifies this schema]",
+      "type": "implements",
+      "uri": "/api/logic/[UUID]"
+    }
+  ]
+}
+
+```
+### 3. UI Matrix Upgrade: The Code Rendering Frame
+When the routing engine detects an artifact_category of machine_map or fillable_schema, it alters how the **Condensed Frame** renders the content. Instead of attempting to parse standard text links, it applies strict syntax highlighting and isolates the fillable form fields.
+**Code Form Template Renderer (condensed_code.html)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body { font-family: monospace; color: #f8f8f2; background-color: #272822; padding: 15px; }
+        .code-header { background: #3e3d32; padding: 10px; border-left: 4px solid #a6e22e; margin-bottom: 10px; }
+        .notation-line { color: #75715e; font-style: italic; }
+        .use-line { color: #66d9ef; }
+        pre { background: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .fill-variable { color: #fd971f; font-weight: bold; background: #49483e; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="code-header">
+        <div class="notation-line">NOTATION: [String injected from foundational.notation]</div>
+        <div class="use-line">USE: [String injected from foundational.use]</div>
+    </div>
+    
+    <button onclick="copyToClipboard()">Copy Generic Template</button>
+
+    <pre><code id="code-block" class="language-[String: syntax_language]">
+[Text injected from condensed_logic. Fillable variables are wrapped in <span class="fill-variable"> tags by backend parser.]
+    </code></pre>
+
+    <script>
+        function copyToClipboard() {
+            const code = document.getElementById('code-block').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                alert("Machine-readable map copied to clipboard.");
+            });
+        }
+    </script>
+</body>
+</html>
+
+```
+### 4. Backend Code Parser & Retrieval Pipeline
+To support the UI upgrades, the Python routing layer needs a specific handler that injects variables correctly and serves the template as raw data to external systems if requested.
+```python
+"""
+NOTATION: Code Artifact Handler.
+USE: Identifies artifact categories. If the node is a template, it parses the fillable variables for UI highlighting and offers a raw export endpoint for automated retrieval.
+"""
+
+import re
+# [IMPORTS: Framework specifics, Database Connector]
+
+def render_condensed_frame(artifact_id: str):
+    """
+    NOTATION: Polymorphic frame renderer.
+    USE: Dynamically selects the HTML template based on the artifact_category.
+    """
+    data = get_logic_artifact(artifact_id) # Inherited from previous backend module
+    
+    if data["artifact_category"] in ["machine_map", "fillable_schema"]:
+        # Parse the raw code to highlight [FILL: variable] markers
+        pattern = r'(\[FILL:.*?\])'
+        replacement = r'<span class="fill-variable">\1</span>'
+        highlighted_code = re.sub(pattern, replacement, data["condensed"])
+        
+        # [INJECT highlighted_code and foundational metadata into condensed_code.html]
+        # [RETURN HTML Response]
+    else:
+        # Proceed with standard logical link parsing
+        parsed_logic = parse_logical_links(data["condensed"])
+        # [INJECT into standard condensed.html]
+        # [RETURN HTML Response]
+
+
+# Route: /api/library/raw/{artifact_id}
+def get_raw_template(artifact_id: str):
+    """
+    NOTATION: Automated library access endpoint.
+    USE: Allows external scripts or pipelines to ping the system and pull down the pure text of a fillable form without UI wrapper code.
+    """
+    data = get_logic_artifact(artifact_id)
+    
+    if data["artifact_category"] not in ["machine_map", "fillable_schema"]:
+        return {"error": "Artifact is not a code template."}, 400
+        
+    raw_template = f"/* NOTATION: {data['foundational'].get('notation')} */\n"
+    raw_template += f"/* USE: {data['foundational'].get('use')} */\n\n"
+    raw_template += data["condensed"]
+    
+    # Return as plain text for direct piping into external systems
+    # [RETURN HTTP Response with content_type="text/plain"]
+    return raw_template
+
+```
+### 5. Browse Matrix Adjustments
+To accommodate this expanded utility, the **Directory Map** (browse.html) requires an immediate set of filtering toggles. This allows users to narrow the matrix down depending on whether they are researching abstract logic, or hunting for a specific deployment schema.
+**Browse Filtering Toggle (HTML Addition)**
+```html
+<div class="filter-controls" style="margin-bottom: 15px;">
+    <select id="category-filter" onchange="fetchDirectory(this.value)" style="width: 90%; background: #2d2d2d; color: #fff; border: 1px solid #555; padding: 5px;">
+        <option value="all">All Artifacts</option>
+        <option value="logic_node">Abstract Logic Nodes</option>
+        <option value="machine_map">Machine-Readable Maps</option>
+        <option value="fillable_schema">Database & Structural Schemas</option>
+    </select>
+</div>
+
+```
+
