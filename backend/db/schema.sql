@@ -67,3 +67,23 @@ CREATE INDEX IF NOT EXISTS idx_target
 
 CREATE INDEX IF NOT EXISTS idx_relationship_type
     ON LogicRelationship(relationship_type);
+
+/*
+  MODULE: Polymorphic Artifact Columns
+  LOCATION: backend/db/schema.sql
+  NOTATION: Schema expansion for multi‑type artifact support.
+  USE: Enables LogicArtifact to store logic nodes, machine maps, and fillable schemas.
+*/
+
+-- Add classification columns if they do not exist
+ALTER TABLE LogicArtifact
+    ADD COLUMN IF NOT EXISTS artifact_category VARCHAR(50) NOT NULL DEFAULT 'logic_node',
+    ADD COLUMN IF NOT EXISTS syntax_language VARCHAR(50) NOT NULL DEFAULT 'text';
+
+-- Index for category filtering in browse.html
+CREATE INDEX IF NOT EXISTS idx_artifact_category
+    ON LogicArtifact(artifact_category);
+
+-- Index for syntax‑based retrieval (optional but recommended)
+CREATE INDEX IF NOT EXISTS idx_syntax_language
+    ON LogicArtifact(syntax_language);
