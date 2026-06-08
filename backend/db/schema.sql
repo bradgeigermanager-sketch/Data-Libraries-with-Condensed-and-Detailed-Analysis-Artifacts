@@ -87,3 +87,30 @@ CREATE INDEX IF NOT EXISTS idx_artifact_category
 -- Index for syntax‑based retrieval (optional but recommended)
 CREATE INDEX IF NOT EXISTS idx_syntax_language
     ON LogicArtifact(syntax_language);
+
+/*
+  MODULE: Graph Indexes
+  LOCATION: backend/db/schema.sql
+  NOTATION: Performance indexes for the immutable logic graph.
+  USE: Accelerates traversal, lookup, and polymorphic filtering.
+*/
+
+-- Artifact category filter (Browse UI)
+CREATE INDEX IF NOT EXISTS idx_artifact_category
+    ON LogicArtifact(artifact_category);
+
+-- Syntax filter (code templates)
+CREATE INDEX IF NOT EXISTS idx_syntax_language
+    ON LogicArtifact(syntax_language);
+
+-- Graph traversal: outgoing edges
+CREATE INDEX IF NOT EXISTS idx_source
+    ON LogicRelationship(source_id);
+
+-- Graph traversal: incoming edges
+CREATE INDEX IF NOT EXISTS idx_target
+    ON LogicRelationship(target_id);
+
+-- Relationship type filter (contradicts, supersedes, implements, etc.)
+CREATE INDEX IF NOT EXISTS idx_relationship_type
+    ON LogicRelationship(relationship_type);
