@@ -1,0 +1,92 @@
+To build the **Logic Ingestion Engine**, we will focus on the most critical bridge: the transformation layer that converts external raw data (like Wikipedia or other source text) into our standardized JSON-LD artifacts.
+We will structure this as a **modular processing pipeline** that can be injected into the existing containerized system.
+### 1. The Ingestion Pipeline Architecture
+The pipeline consists of three stages: **Normalize** (cleaning), **Extract** (logical parsing), and **Standardize** (JSON packaging).
+```python
+"""
+NOTATION: Modular Ingestion Engine.
+USE: Acts as the primary pipeline handler for both human and agentic inputs.
+"""
+
+import json
+import uuid
+
+class LogicIngestionEngine:
+    def __init__(self, db_interface):
+        self.db = db_interface
+
+    def process_source(self, raw_text: str, source_metadata: dict):
+        """
+        NOTATION: Normalization and Extraction flow.
+        USE: Converts raw text into an artifact map.
+        """
+        # Step 1: Extraction (Triggered LLM or User Logic)
+        artifacts = self._extract_logical_nodes(raw_text)
+        
+        # Step 2: Standardization
+        for art in artifacts:
+            standardized_json = self._package_as_jsonld(art, source_metadata)
+            
+            # Step 3: Commitment
+            self.db.upsert_artifact(standardized_json)
+
+    def _package_as_jsonld(self, art_data, meta):
+        # Maps the extracted content into the atomic schema
+        return {
+            "artifact_id": str(uuid.uuid4()),
+            "title": art_data['title'],
+            "representations": {
+                "condensed": art_data['condensed'],
+                "verbose": art_data['verbose'],
+                "foundational": meta
+            },
+            "interrelationships": art_data.get('links', [])
+        }
+
+```
+### 2. The Relationship Mapping Component
+A major part of ingestion is identifying existing nodes to link to. We need a lookup service that allows the engine to verify if a concept (e.g., "Modus Ponens") already exists in our graph before creating a new artifact.
+```python
+"""
+NOTATION: Relationship Discovery Map.
+USE: Helper component to resolve entity names to existing System UUIDs.
+"""
+
+def resolve_entity_to_uuid(entity_name: str, db_connection):
+    """
+    NOTATION: Node look-up.
+    USE: Prevents orphan artifacts by linking to existing logic.
+    """
+    query = "SELECT artifact_id FROM LogicArtifact WHERE title = ? LIMIT 1"
+    # [EXECUTE QUERY]
+    # IF found, return uuid; ELSE return None
+
+```
+### 3. The Checklist and Workflow Automation
+We implement the checklists as **JSON-LD State Trackers**. Every ingestion job is initialized with a tracking object that requires sign-off before being committed to the immutable database.
+**Ingestion State Tracker (JSON Template)**
+```json
+{
+  "_notation": "State Tracker for ingestion lifecycle.",
+  "job_id": "[UUID]",
+  "status": {
+    "normalization": "COMPLETED",
+    "logical_extraction": "PENDING",
+    "relationship_resolution": "PENDING",
+    "immutability_check": "PENDING"
+  },
+  "verifiers": {
+    "is_orphaned": false,
+    "source_integrity": true,
+    "is_versioned": false
+  }
+}
+
+```
+### 4. Implementation Steps: Building the Engine
+To finalize this component, we need to wire the **Ingestion Engine** to the **Admin Receiver** you already have.
+ 1. **Develop the LogicIngestionEngine** (code provided above): This will sit inside the api_engine container.
+ 2. **Define the Source Metadata format**: Update the admin UI to include a Source URL and Extraction Timestamp field, ensuring every ingested artifact has a clear lineage.
+ 3. **Deploy the Relationship Resolver**: Add this as a helper service to the API container so that when a user or agent types a title in the "Relationship" field of the UI, it provides autocomplete suggestions from the existing graph.
+**Which component should we prioritize for immediate coding: the Relationship Resolver (the autocomplete/search bridge) or the Ingestion State Tracker (the verification engine)?**
+
