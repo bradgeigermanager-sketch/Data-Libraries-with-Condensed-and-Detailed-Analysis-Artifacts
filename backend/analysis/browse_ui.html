@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Logic Graph Browser</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: 100vh;
+    }
+
+    /* Sidebar */
+    #sidebar {
+        background: #1e1e1e;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    #sidebar h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+    }
+
+    .nav-item {
+        padding: 10px;
+        background: #333;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .nav-item:hover {
+        background: #444;
+    }
+
+    /* Main panel */
+    #main {
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .panel {
+        display: none;
+    }
+
+    .panel.active {
+        display: block;
+    }
+
+    input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px 16px;
+        background: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #005fa3;
+    }
+
+    pre {
+        background: #f4f4f4;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+
+    .artifact-card {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    }
+
+    .artifact-card:hover {
+        background: #f0f0f0;
+    }
+
+    .artifact-title {
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
+
+    .artifact-category {
+        color: #666;
+        font-size: 13px;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <h2>Browse</h2>
+
+    <div class="nav-item" onclick="showPanel('list')">Artifact List</div>
+    <div class="nav-item" onclick="showPanel('detail')">Artifact Detail</div>
+    <div class="nav-item" onclick="showPanel('relationships')">Relationships</div>
+    <div class="nav-item" onclick="showPanel('lineage')">Lineage</div>
+    <div class="nav-item" onclick="showPanel('related')">Related Artifacts</div>
+</div>
+
+<!-- Main Content -->
+<div id="main">
+
+    <!-- ARTIFACT LIST -->
+    <div id="panel-list" class="panel active">
+        <h2>Artifact List</h2>
+        <input id="list-category" placeholder="Filter by category (optional)" />
+        <button onclick="loadArtifactList()">Load</button>
+        <div id="list-results"></div>
+    </div>
+
+    <!-- ARTIFACT DETAIL -->
+    <div id="panel-detail" class="panel">
+        <h2>Artifact Detail</h2>
+        <input id="detail-id" placeholder="Artifact UUID" />
+        <button onclick="loadDetail()">Load</button>
+        <pre id="detail-output"></pre>
+    </div>
+
+    <!-- RELATIONSHIPS -->
+    <div id="panel-relationships" class="panel">
+        <h2>Relationships</h2>
+        <input id="rel-id" placeholder="Artifact UUID" />
+        <button onclick="loadRelationships()">Load</button>
+        <pre id="rel-output"></pre>
+    </div>
+
+    <!-- LINEAGE -->
+    <div id="panel-lineage" class="panel">
+        <h2>Lineage</h2>
+        <input id="lineage-id" placeholder="Artifact UUID" />
+        <button onclick="loadLineage()">Load</button>
+        <pre id="lineage-output"></pre>
+    </div>
+
+    <!-- RELATED ARTIFACTS -->
+    <div id="panel-related" class="panel">
+        <h2>Related Artifacts</h2>
+        <input id="related-id" placeholder="Artifact UUID" />
+        <button onclick="loadRelated()">Load</button>
+        <div id="related-results"></div>
+    </div>
+
+</div>
+
+<script>
+function showPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+function renderArtifactCards(containerId, rows) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+
+    rows.forEach(row => {
+        const card = document.createElement("div");
+        card.className = "artifact-card";
+        card.onclick = () => {
+            document.getElementById("detail-id").value = row.artifact_id;
+            showPanel("detail");
+            loadDetail();
+        };
+
+        const title = document.createElement("div");
+        title.className = "artifact-title";
+        title.textContent = row.title;
+
+        const cat = document.createElement("div");
+        cat.className = "artifact-category";
+        cat.textContent = row.artifact_category;
+
+        card.appendChild(title);
+        card.appendChild(cat);
+        container.appendChild(card);
+    });
+}
+
+async function loadArtifactList() {
+    const category = document.getElementById("list-category").value;
+    const url = category ? `/browse/artifacts?category=${encodeURIComponent(category)}` : `/browse/artifacts`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+    renderArtifactCards("list-results", data.artifacts);
+}
+
+async function loadDetail() {
+    const id = document.getElementById("detail-id").value;
+    const res = await fetch(`/browse/artifact/${id}`);
+    const data = await res.json();
+    document.getElementById("detail-output").textContent = JSON.stringify(data, null, 2);
+}
+
+async function loadRelationships() {
+    const id = document.getElementById("rel-id").value;
+    const res = await fetch(`/browse/artifact/${id}/relationships`);
+    const data = await res.json();
+    document.getElementById("rel-output").textContent = JSON.stringify(data, null, 2);
+}
+
+async function loadLineage() {
+    const id = document.getElementById("lineage-id").value;
+    const res = await fetch(`/lineage/${id}`);
+    const data = await res.json();
+    document.getElementById("lineage-output").textContent = JSON.stringify(data, null, 2);
+}
+
+async function loadRelated() {
+    const id = document.getElementById("related-id").value;
+    const res = await fetch(`/browse/artifact/${id}/related`);
+    const data = await res.json();
+    renderArtifactCards("related-results", data.related);
+}
+</script>
+
+</body>
+</html>
