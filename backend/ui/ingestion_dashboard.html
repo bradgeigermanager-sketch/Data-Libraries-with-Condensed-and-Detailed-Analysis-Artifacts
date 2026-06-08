@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Ingestion Dashboard</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        height: 100vh;
+    }
+
+    /* Sidebar */
+    #sidebar {
+        background: #1e1e1e;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    #sidebar h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+    }
+
+    .nav-item {
+        padding: 10px;
+        background: #333;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .nav-item:hover {
+        background: #444;
+    }
+
+    /* Main panel */
+    #main {
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .panel {
+        display: none;
+    }
+
+    .panel.active {
+        display: block;
+    }
+
+    textarea, input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px 16px;
+        background: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #005fa3;
+    }
+
+    pre {
+        background: #f4f4f4;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+
+    .job-entry {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    }
+
+    .job-entry:hover {
+        background: #f0f0f0;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <h2>Ingestion Dashboard</h2>
+
+    <div class="nav-item" onclick="showPanel('jobs')">Job History</div>
+    <div class="nav-item" onclick="showPanel('jobdetail')">Job Detail</div>
+    <div class="nav-item" onclick="showPanel('live')">Live Monitor</div>
+</div>
+
+<!-- Main Content -->
+<div id="main">
+
+    <!-- JOB HISTORY PANEL -->
+    <div id="panel-jobs" class="panel active">
+        <h2>Ingestion Job History</h2>
+        <button onclick="loadJobHistory()">Refresh</button>
+        <div id="job-list"></div>
+    </div>
+
+    <!-- JOB DETAIL PANEL -->
+    <div id="panel-jobdetail" class="panel">
+        <h2>Job Detail</h2>
+        <input id="job-id-input" placeholder="Job UUID" />
+        <button onclick="loadJobDetail()">Load Job</button>
+        <pre id="job-detail-output"></pre>
+    </div>
+
+    <!-- LIVE MONITOR PANEL -->
+    <div id="panel-live" class="panel">
+        <h2>Live Ingestion Monitor</h2>
+        <p>Polls the backend for the most recent ingestion job.</p>
+        <button onclick="startLiveMonitor()">Start</button>
+        <button onclick="stopLiveMonitor()">Stop</button>
+        <pre id="live-output"></pre>
+    </div>
+
+</div>
+
+<script>
+let liveInterval = null;
+
+function showPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+async function loadJobHistory() {
+    const res = await fetch("/admin/jobs");  // You will expose this endpoint in admin_api.py
+    const data = await res.json();
+
+    const container = document.getElementById("job-list");
+    container.innerHTML = "";
+
+    data.jobs.forEach(job => {
+        const div = document.createElement("div");
+        div.className = "job-entry";
+        div.textContent = `${job.job_id} — ${job.started_at}`;
+        div.onclick = () => {
+            document.getElementById("job-id-input").value = job.job_id;
+            showPanel("jobdetail");
+            loadJobDetail();
+        };
+        container.appendChild(div);
+    });
+}
+
+async function loadJobDetail() {
+    const jobId = document.getElementById("job-id-input").value;
+    const res = await fetch(`/admin/job/${jobId}`);
+    const data = await res.json();
+    document.getElementById("job-detail-output").textContent = JSON.stringify(data, null, 2);
+}
+
+async function pollLatestJob() {
+    const res = await fetch("/admin/job/latest");
+    const data = await res.json();
+    document.getElementById("live-output").textContent = JSON.stringify(data, null, 2);
+}
+
+function startLiveMonitor() {
+    if (liveInterval) return;
+    liveInterval = setInterval(pollLatestJob, 2000);
+}
+
+function stopLiveMonitor() {
+    clearInterval(liveInterval);
+    liveInterval = null;
+}
+</script>
+
+</body>
+</html>
