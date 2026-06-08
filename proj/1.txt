@@ -1,0 +1,129 @@
+Nice—this is the right moment to harden this into a real codebase.
+
+Here’s a clean, practical package refactor that matches what you’ve already built.
+
+---
+
+1. Top-level layout
+
+`text
+project-root/
+  backend/
+    logic_core/
+    ingestion/
+    wikipedia/
+    api/
+    db/
+    tests/
+  frontend/
+    matrix-ui/
+    admin-ui/
+  deploy/
+    docker/
+    k8s/        # optional, future
+  docs/
+`
+
+---
+
+2. Backend package structure
+
+`text
+backend/
+  logic_core/
+    init.py
+    models.py          # LogicArtifact, LogicRelationship dataclasses/ORM
+    relationships.py   # relationship types, helpers
+    versioning.py      # supersedes, deprecated flags
+    contradictions.py  # detection + classification
+
+  db/
+    init.py
+    connection.py      # DB URL, pool, session
+    schema.sql         # init schema
+    immutability.sql   # triggers
+    repository.py      # CRUD + graph queries (getlogicartifact, directory index, resolver)
+
+  ingestion/
+    init.py
+    engine.py          # LogicIngestionEngine
+    normalize.py
+    extract.py
+    package_jsonld.py
+    state_tracker.py
+    resolver.py        # title → UUID, autocomplete helpers
+
+  wikipedia/
+    init.py
+    client.py          # WikipediaClient
+    category_harvester.py
+    wiki_extract.py    # summary/infobox → ingestion-ready structures
+
+  api/
+    init.py
+    main.py            # FastAPI/Flask app
+    routes_logic.py    # /api/logic, /ui/* renderers
+    routes_admin.py    # /api/admin/ingest, versioning
+    routes_directory.py# /api/directory
+    routes_library.py  # /api/library/raw
+    routes_harvest.py  # /api/harvest/category
+
+  tests/
+    init.py
+    testlinkparser.py
+    testingestionengine.py
+    test_resolver.py
+    testwikiharvest.py
+`
+
+---
+
+3. Frontend structure
+
+`text
+frontend/
+  matrix-ui/
+    index.html
+    browse.html
+    condensed.html
+    condensed_code.html
+    verbose.html
+    foundational.html
+    css/
+    js/
+
+  admin-ui/
+    admin_insert.html
+    admin_workflow.js
+`
+
+---
+
+4. Deployment / infra
+
+`text
+deploy/
+  docker/
+    backend.Dockerfile
+    nginx.conf
+    docker-compose.yml
+  k8s/
+    api-deployment.yaml
+    db-statefulset.yaml
+    ui-deployment.yaml
+`
+
+---
+
+5. How responsibilities split
+
+- logic_core: pure domain logic, no IO.
+- db: all SQL, connections, and repositories.
+- ingestion: normalization, extraction, packaging, state tracking, resolver.
+- wikipedia: all MediaWiki-specific logic.
+- api: HTTP surface only—thin layer over core + db + ingestion.
+- frontend: static assets, no backend logic.
+- deploy: everything runtime/infra.
+
+If you want, next step can be:  
+“Generate backend/ingestion/engine.py and backend/ingestion/resolver.py as fully wired, package-aware modules.”
