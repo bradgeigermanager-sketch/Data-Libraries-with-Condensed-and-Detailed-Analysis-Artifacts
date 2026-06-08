@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Logic Graph Visualizer</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        height: 100vh;
+    }
+
+    /* Sidebar */
+    #sidebar {
+        background: #1e1e1e;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    #sidebar h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+    }
+
+    .nav-item {
+        padding: 10px;
+        background: #333;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .nav-item:hover {
+        background: #444;
+    }
+
+    /* Main panel */
+    #main {
+        position: relative;
+        overflow: hidden;
+    }
+
+    #graph-canvas {
+        width: 100%;
+        height: 100%;
+        background: #fafafa;
+        cursor: grab;
+    }
+
+    #graph-canvas:active {
+        cursor: grabbing;
+    }
+
+    /* Detail panel */
+    #detail-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 340px;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 12px;
+        max-height: 80vh;
+        overflow-y: auto;
+        display: none;
+    }
+
+    #detail-panel h3 {
+        margin-top: 0;
+    }
+
+    pre {
+        background: #f4f4f4;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+
+    input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px 16px;
+        background: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #005fa3;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <h2>Graph Visualizer</h2>
+
+    <div class="nav-item" onclick="loadSubgraph()">Load Subgraph</div>
+    <div class="nav-item" onclick="loadFullGraph()">Load Full Graph</div>
+
+    <input id="artifact-id" placeholder="Artifact UUID" />
+    <input id="depth" placeholder="Depth (default 1)" />
+</div>
+
+<!-- Main Graph Area -->
+<div id="main">
+    <canvas id="graph-canvas"></canvas>
+
+    <div id="detail-panel">
+        <h3>Artifact Detail</h3>
+        <pre id="detail-output"></pre>
+        <button onclick="closeDetail()">Close</button>
+    </div>
+</div>
+
+<script>
+let canvas = document.getElementById("graph-canvas");
+let ctx = canvas.getContext("2d");
+
+let graph = { nodes: [], edges: [] };
+let camera = { x: 0, y: 0, zoom: 1 };
+let dragging = false;
+let lastX = 0, lastY = 0;
+
+function resizeCanvas() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    renderGraph();
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+/* -----------------------------
+   GRAPH RENDERING
+------------------------------ */
+
+function renderGraph() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(camera.x, camera.y);
+    ctx.scale(camera.zoom, camera.zoom);
+
+    // Draw edges
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 1;
+    graph.edges.forEach(e => {
+        let s = graph.nodes.find(n => n.id === e.source);
+        let t = graph.nodes.find(n => n.id === e.target);
+        if (!s || !t) return;
+
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.stroke();
+    });
+
+    // Draw nodes
+    graph.nodes.forEach(n => {
+        ctx.beginPath();
+        ctx.fillStyle = "#0078d4";
+        ctx.arc(n.x, n.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    ctx.restore();
+}
+
+/* -----------------------------
+   GRAPH INTERACTION
+------------------------------ */
+
+canvas.addEventListener("mousedown", e => {
+    dragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+});
+
+canvas.addEventListener("mouseup", () => dragging = false);
+canvas.addEventListener("mouseleave", () => dragging = false);
+
+canvas.addEventListener("mousemove", e => {
+    if (dragging) {
+        camera.x += e.clientX - lastX;
+        camera.y += e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        renderGraph();
+    }
+});
+
+canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    camera.zoom *= (e.deltaY < 0 ? 1.1 : 0.9);
+    renderGraph();
+});
+
+/* -----------------------------
+   GRAPH DATA LOADING
+------------------------------ */
+
+async function loadSubgraph() {
+    const id = document.getElementById("artifact-id").value;
+    const depth = parseInt(document.getElementById("depth").value || "1");
+
+    const res = await fetch(`/graph/subgraph/${id}?depth=${depth}`);
+    const data = await res.json();
+
+    prepareGraph(data);
+}
+
+async function loadFullGraph() {
+    const res = await fetch(`/graph/full`);
+    const data = await res.json();
+    prepareGraph(data);
+}
+
+function prepareGraph(data) {
+    graph.nodes = data.nodes.map(n => ({
+        ...n,
+        x: Math.random() * 800 - 400,
+        y: Math.random() * 800 - 400
+    }));
+
+    graph.edges = data.edges;
+
+    renderGraph();
+}
+
+/* -----------------------------
+   NODE CLICK DETECTION
+------------------------------ */
+
+canvas.addEventListener("click", e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - camera.x) / camera.zoom;
+    const y = (e.clientY - rect.top - camera.y) / camera.zoom;
+
+    for (let n of graph.nodes) {
+        const dx = x - n.x;
+        const dy = y - n.y;
+        if (dx*dx + dy*dy < 100) {
+            loadDetail(n.id);
+            return;
+        }
+    }
+});
+
+/* -----------------------------
+   ARTIFACT DETAIL
+------------------------------ */
+
+async function loadDetail(id) {
+    const res = await fetch(`/browse/artifact/${id}`);
+    const data = await res.json();
+
+    document.getElementById("detail-output").textContent =
+        JSON.stringify(data, null, 2);
+
+    document.getElementById("detail-panel").style.display = "block";
+}
+
+function closeDetail() {
+    document.getElementById("detail-panel").style.display = "none";
+}
+</script>
+
+</body>
+</html>
