@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Logic Graph Search UI</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: 100vh;
+    }
+
+    /* Sidebar */
+    #sidebar {
+        background: #1e1e1e;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    #sidebar h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+    }
+
+    .nav-item {
+        padding: 10px;
+        background: #333;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .nav-item:hover {
+        background: #444;
+    }
+
+    /* Main panel */
+    #main {
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .panel {
+        display: none;
+    }
+
+    .panel.active {
+        display: block;
+    }
+
+    textarea, input, select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px 16px;
+        background: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #005fa3;
+    }
+
+    pre {
+        background: #f4f4f4;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+
+    .result-card {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    }
+
+    .result-card:hover {
+        background: #f0f0f0;
+    }
+
+    .result-title {
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
+
+    .result-snippet {
+        color: #444;
+        font-size: 14px;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <h2>Search UI</h2>
+
+    <div class="nav-item" onclick="showPanel('text')">Full‑Text Search</div>
+    <div class="nav-item" onclick="showPanel('title')">Title Search</div>
+    <div class="nav-item" onclick="showPanel('field')">Field Search</div>
+    <div class="nav-item" onclick="showPanel('multi')">Multi‑Criteria</div>
+    <div class="nav-item" onclick="showPanel('fuzzy')">Fuzzy Search</div>
+    <div class="nav-item" onclick="showPanel('detail')">Artifact Detail</div>
+</div>
+
+<!-- Main Content -->
+<div id="main">
+
+    <!-- FULL TEXT SEARCH -->
+    <div id="panel-text" class="panel active">
+        <h2>Full‑Text Search</h2>
+        <input id="text-query" placeholder="Search text..." />
+        <button onclick="runTextSearch()">Search</button>
+        <div id="text-results"></div>
+    </div>
+
+    <!-- TITLE SEARCH -->
+    <div id="panel-title" class="panel">
+        <h2>Title Search</h2>
+        <input id="title-query" placeholder="Search title..." />
+        <button onclick="runTitleSearch()">Search</button>
+        <div id="title-results"></div>
+    </div>
+
+    <!-- FIELD SEARCH -->
+    <div id="panel-field" class="panel">
+        <h2>Field Search</h2>
+        <input id="field-name" placeholder="Field name (e.g. artifact_category)" />
+        <input id="field-value" placeholder="Field value (e.g. logic_node)" />
+        <button onclick="runFieldSearch()">Search</button>
+        <div id="field-results"></div>
+    </div>
+
+    <!-- MULTI-CRITERIA SEARCH -->
+    <div id="panel-multi" class="panel">
+        <h2>Multi‑Criteria Search</h2>
+        <textarea id="multi-json" rows="6" placeholder='{"title": "gravity", "artifact_category": "logic_node"}'></textarea>
+        <button onclick="runMultiSearch()">Search</button>
+        <div id="multi-results"></div>
+    </div>
+
+    <!-- FUZZY SEARCH -->
+    <div id="panel-fuzzy" class="panel">
+        <h2>Fuzzy Search</h2>
+        <input id="fuzzy-query" placeholder="Approximate search..." />
+        <button onclick="runFuzzySearch()">Search</button>
+        <div id="fuzzy-results"></div>
+    </div>
+
+    <!-- ARTIFACT DETAIL -->
+    <div id="panel-detail" class="panel">
+        <h2>Artifact Detail</h2>
+        <input id="detail-id" placeholder="Artifact UUID" />
+        <button onclick="loadDetail()">Load</button>
+        <pre id="detail-output"></pre>
+    </div>
+
+</div>
+
+<script>
+function showPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+function renderResults(containerId, rows) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+
+    rows.forEach(row => {
+        const card = document.createElement("div");
+        card.className = "result-card";
+        card.onclick = () => {
+            document.getElementById("detail-id").value = row.artifact_id;
+            showPanel("detail");
+            loadDetail();
+        };
+
+        const title = document.createElement("div");
+        title.className = "result-title";
+        title.textContent = row.title;
+
+        const snippet = document.createElement("div");
+        snippet.className = "result-snippet";
+        snippet.textContent = row.condensed_logic;
+
+        card.appendChild(title);
+        card.appendChild(snippet);
+        container.appendChild(card);
+    });
+}
+
+async function runTextSearch() {
+    const q = document.getElementById("text-query").value;
+    const res = await fetch(`/search/text?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderResults("text-results", data.results);
+}
+
+async function runTitleSearch() {
+    const q = document.getElementById("title-query").value;
+    const res = await fetch(`/search/title?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderResults("title-results", data.results);
+}
+
+async function runFieldSearch() {
+    const field = document.getElementById("field-name").value;
+    const value = document.getElementById("field-value").value;
+
+    const res = await fetch(`/search/field?field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}`);
+    const data = await res.json();
+    renderResults("field-results", data.results);
+}
+
+async function runMultiSearch() {
+    const criteria = JSON.parse(document.getElementById("multi-json").value || "{}");
+
+    const res = await fetch("/search/multi", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ criteria })
+    });
+
+    const data = await res.json();
+    renderResults("multi-results", data.results);
+}
+
+async function runFuzzySearch() {
+    const q = document.getElementById("fuzzy-query").value;
+    const res = await fetch(`/search/fuzzy?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderResults("fuzzy-results", data.results);
+}
+
+async function loadDetail() {
+    const id = document.getElementById("detail-id").value;
+    const res = await fetch(`/browse/artifact/${id}`);
+    const data = await res.json();
+    document.getElementById("detail-output").textContent = JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>
