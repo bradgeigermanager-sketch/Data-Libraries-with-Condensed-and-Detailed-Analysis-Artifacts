@@ -1,0 +1,123 @@
+📘 Role Matrix Documentation (RBAC v1.0)
+(Authoritative reference for all backend + superconsole access control)
+
+This matrix defines:
+
+- All roles in the system  
+- All permissions  
+- Exact allow/deny mappings  
+- No inheritance  
+- No implicit privileges  
+- No default role  
+
+Every permission must be explicitly granted.
+
+---
+
+🧩 RBAC Permission Set
+
+| Permission | Description |
+|-----------|-------------|
+| canread | View artifacts, search, browse, lineage, graph |
+| canwrite | Modify artifacts, update metadata, create relationships |
+| caningest | Run ingestion engine, submit new logic payloads |
+| canharvest | Run harvester orchestrator (external fetch) |
+| canmanagejobs | View ingestion job history, job details, job events |
+
+These are the only permissions in the system.
+
+---
+
+🧭 Role Matrix (Authoritative)
+
+| Role | canread | canwrite | caningest | canharvest | canmanagejobs |
+|------|----------|-----------|------------|-------------|-----------------|
+| admin | ✅ | ✅ | ✅ | ✅ | ✅ |
+| operator | ✅ | ✅ | ✅ | ❌ | ✅ |
+| reader | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+This table is canonical.  
+No other roles exist.  
+No role inherits from another.
+
+---
+
+🔐 Role Definitions (Explicit)
+
+admin
+Full‑control role.  
+Intended for system maintainers and platform owners.
+
+- Full read/write  
+- Full ingestion + harvesting  
+- Full job management  
+- Full superconsole access  
+
+---
+
+operator
+Operational role for ingestion + job management.
+
+- Read everything  
+- Write artifacts  
+- Run ingestion  
+- Manage jobs  
+- Cannot run harvester (external fetch restricted)
+
+---
+
+reader
+Read‑only role for analysts, auditors, and observers.
+
+- Can browse, search, view lineage, view graph  
+- Cannot modify anything  
+- Cannot ingest  
+- Cannot harvest  
+- Cannot manage jobs  
+
+---
+
+🧪 RBAC Enforcement Points
+
+Every API route declares its required permission explicitly:
+
+- /browse/* → can_read  
+- /search/* → can_read  
+- /graph/* → can_read  
+- /admin/update → can_write  
+- /admin/ingest → can_ingest  
+- /admin/harvest/* → can_harvest  
+- /admin/jobs → canmanagejobs  
+
+There is no fallback.  
+There is no default allow.  
+There is no role inference.
+
+---
+
+🧩 Superconsole Integration
+
+The superconsole sends:
+
+`
+X-User-Role: admin | operator | reader
+`
+
+All fetch() calls must be replaced with:
+
+- authedFetch
+
+This ensures RBAC is enforced uniformly across all UI panels.
+
+---
+
+📜 Compliance Guarantees
+
+This RBAC model guarantees:
+
+- Deterministic access control  
+- Zero privilege escalation  
+- Zero implicit permissions  
+- Full auditability  
+- Full test coverage (via your RBAC test suite)  
+- Future‑proof extension (add new permissions without breaking roles)  
